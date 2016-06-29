@@ -1,0 +1,10 @@
+{
+  "name": "SynchronizeJs",
+  "main": [
+    "src/synchronize.js"
+  ],
+  "license": "The BSD 3-Clause License",
+  "ignore": [
+    "examples"
+  ]
+}
