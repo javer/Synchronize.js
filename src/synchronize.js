@@ -286,9 +286,6 @@
             if (!useVideoJs()) {
                 return getVideo(id).paused;
             } else {
-                if (id === masterVideoId) {
-                    console.error('IS PAUSED', getVideo(id).paused());
-                }
                 return getVideo(id).paused();
             }
         } else {
