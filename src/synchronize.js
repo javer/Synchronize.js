@@ -37,6 +37,7 @@
     var synchDelayThresholdNegative = -0.05;
     var synchDelayThresholdFlash = 0.05;
     var bufferThreshold = 0.3;
+    var syncAudio = true;
 
     /* don't change the variables below */
     var debug = false; // set this via event 'sjs:debug'
@@ -247,6 +248,50 @@
     }
 
     /**
+     * Returns the muted state of a video element
+     *
+     * @param id video ID
+     * @return the muted state of a video element if id is defined, -1 else
+     */
+    function getMuted(id) {
+        if (id) {
+            log('SJS: [volume] Getting muted state from video element id \'' + id + '\'');
+            var video = getVideo(id);
+            return useVideoJs() ? video.muted() : video.muted;
+        } else {
+            log('SJS: [volume] Undefined video element id \'' + id + '\'');
+        }
+        return -1;
+    }
+
+    /**
+     * Sets the volume of a video element
+     *
+     * @param id video ID
+     * @param volume in [0.0 - 1.0]
+     * @param muted true or false
+     * @return true if successfully set, false else
+     */
+    function setVolume(id, volume, muted) {
+        if (id) {
+            log('SJS: [volume] Setting volume for video element id \'' + id + '\': ' + volume);
+            var video = getVideo(id);
+            var isMuted = (typeof muted != 'undefined') ? muted : volume == 0;
+            if (!useVideoJs()) {
+                video.muted = isMuted;
+                video.volume(volume);
+            } else {
+                video.volume(volume);
+                video.muted(isMuted);
+            }
+            return true;
+        } else {
+            log('SJS: [volume] Undefined video element id \'' + id + '\'');
+        }
+        return false;
+    }
+
+    /**
      * Pause video
      *
      * @param id video id
@@ -286,9 +331,6 @@
             if (!useVideoJs()) {
                 return getVideo(id).paused;
             } else {
-                if (id === masterVideoId) {
-                    console.error('IS PAUSED', getVideo(id).paused());
-                }
                 return getVideo(id).paused();
             }
         } else {
@@ -499,6 +541,7 @@
                 masterPlayer.off('play');
                 masterPlayer.off('pause');
                 masterPlayer.off('ratechange');
+                masterPlayer.off('volumechange');
                 masterPlayer.off('ended');
                 masterPlayer.off('timeupdate');
             }
@@ -547,6 +590,7 @@
             masterPlayer.off('play');
             masterPlayer.off('pause');
             masterPlayer.off('ratechange');
+            masterPlayer.off('volumechange');
             masterPlayer.off('ended');
             masterPlayer.off('timeupdate');
         }
@@ -566,7 +610,11 @@
                 var doSeek = false;
                 var synchDelay = getSynchDelay(videoIds[i]);
 
-                mute(videoIds[i]);
+                if (syncAudio) {
+                    setVolume(videoIds[i], getVolume(masterVideoId), getMuted(masterVideoId));
+                } else {
+                    mute(videoIds[i]);
+                }
 
                 var masterPaused = isPaused(masterVideoId);
                 if (masterPaused) {
@@ -695,7 +743,9 @@
                 for (var i = 0; i < videoIds.length; ++i) {
                     if (videoIds[i] !== masterVideoId) {
                         play(videoIds[i]);
-                        mute(videoIds[i]);
+                        if (!syncAudio) {
+                            mute(videoIds[i]);
+                        }
                     }
                 }
             });
@@ -717,6 +767,18 @@
                     }
                 }
             });
+
+            if (syncAudio) {
+                masterPlayer.on('volumechange', function () {
+                    log('SJS: Master received \'volumechange\' event');
+                    $(document).trigger('sjs:masterPlaybackVolumeChanged', [getVolume(masterVideoId)]);
+                    for (var i = 0; i < videoIds.length; ++i) {
+                        if (videoIds[i] !== masterVideoId) {
+                            setVolume(videoIds[i], getVolume(masterVideoId), getMuted(masterVideoId));
+                        }
+                    }
+                });
+            }
 
             masterPlayer.on('ended', function() {
                 log('SJS: Master received \'ended\' event');
